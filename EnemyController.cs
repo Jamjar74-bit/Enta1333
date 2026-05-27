@@ -1,8 +1,6 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class EnemyController : MonoBehaviour
-
 {
     [Header("Movement Settings")]
     public float chaseSpeed = 5f;
@@ -16,95 +14,66 @@ public class EnemyController : MonoBehaviour
     private float idleTimer;
     private bool isChasing;
 
-    // State names (must match your Animator parameter names)
-    private const string SPEED_PARAM = "Speed";
-    private const string IS_CHASING_PARAM = "IsChasing";
+    private enum EnemyState { Chasing, Idling }
+    [SerializeField] private EnemyState _currentState;
 
     void Start()
     {
         if (player == null)
             player = GameObject.FindGameObjectWithTag("Player").transform;
-
-        if (animator == null)
-            animator = GetComponent<Animator>();
-
+        _currentState = EnemyState.Idling;
         idleTimer = idleDuration;
-        isChasing = false;
     }
 
     void Update()
     {
-        // Check if player is within detection range
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
         bool playerDetected = distanceToPlayer <= detectionRange;
 
-        // State logic
-        if (playerDetected)
-        {
-            ChasePlayer();
-        }
-        else
-        {
-            IdleState();
-        }
+        if (playerDetected && _currentState != EnemyState.Chasing)
+            ChangeState(EnemyState.Chasing);
+        else if (!playerDetected && _currentState != EnemyState.Idling)
+            ChangeState(EnemyState.Idling);
 
-        // Update Animator parameters
-        UpdateAnimator();
+        switch (_currentState)
+        {
+            case EnemyState.Chasing:
+                ChasePlayer();
+                break;
+            case EnemyState.Idling:
+                Idle();
+                break;
+        }
+    }
+
+    void ChangeState(EnemyState newState)
+    {
+        _currentState = newState;
+        Debug.Log("State changed to: " + newState);
     }
 
     void ChasePlayer()
     {
         isChasing = true;
-
-        // Move towards player
         Vector3 direction = (player.position - transform.position).normalized;
         transform.position += direction * chaseSpeed * Time.deltaTime;
 
-        // Optional: Rotate to face player
         if (direction != Vector3.zero)
         {
             Quaternion targetRotation = Quaternion.LookRotation(direction);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * 5f);
         }
-
-        // Reset idle timer when chasing
-        idleTimer = idleDuration;
+        idleTimer = idleDuration; // reset timer
     }
 
-    void IdleState()
+    void Idle()
     {
         isChasing = false;
-
-        // Countdown idle timer
         idleTimer -= Time.deltaTime;
-
-        // Simple idle behavior (can add wandering or looking around)
         if (idleTimer <= 0)
         {
-            // Reset timer and maybe do a random idle animation
             idleTimer = idleDuration;
-            // You could trigger a random idle animation here
+           
         }
     }
-
-    void UpdateAnimator()
-    {
-        if (animator != null)
-        {
-            // Set speed parameter (0 = idle, 1 = running)
-            float speed = isChasing ? 1f : 0f;
-            animator.SetFloat(SPEED_PARAM, speed);
-
-            // Alternative: Use boolean parameter
-            animator.SetBool(IS_CHASING_PARAM, isChasing);
-        }
-    }
-
-    // Visualize detection range in editor
-    void OnDrawGizmosSelected()
-    {
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position, detectionRange);
-    }
-
 }
